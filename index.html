@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Crypto Lot Size Calculator</title>
+</head>
+<body>
+  <h1>Crypto Lot Size Calculator (no CSS)</h1>
+
+  <div>
+    <label>Dollar risk: <input id="risk" type="number" step="0.01"></label>
+  </div>
+
+  <div>
+    <label>Entry price: <input id="price" type="number" step="0.0001"></label>
+    <button type="button" id="pastePrice">Paste</button>
+  </div>
+
+  <div>
+    <label>Stop-loss price: <input id="sl" type="number" step="0.0001"></label>
+    <button type="button" id="pasteSL">Paste</button>
+  </div>
+
+  <div>
+    <label>Take-profit price (optional): <input id="tp" type="number" step="0.0001"></label>
+    <button type="button" id="pasteTP">Paste</button>
+  </div>
+
+  <div>
+    <button id="calc">Calculate</button>
+    <button id="clear">Clear</button>
+  </div>
+
+  <h2>Outputs (these are inputs for easy copy/edit)</h2>
+  <div>
+    <label>Entry: <input id="outEntry" type="text" readonly></label>
+    <button id="copyOutEntry">Copy</button>
+  </div>
+  <div>
+    <label>SL: <input id="outSL" type="text" readonly></label>
+    <button id="copyOutSL">Copy</button>
+  </div>
+  <div>
+    <label>TP: <input id="outTP" type="text" readonly></label>
+    <button id="copyOutTP">Copy</button>
+  </div>
+  <div>
+    <label>Position size: <input id="outCoins" type="text" readonly></label>
+    <button id="copyOutPosition">Copy</button>
+  </div>
+
+  <div id="msg" aria-live="polite" style="margin-top:8px"></div>
+
+<script>
+function formatNumber(n, decimals){
+  if (!isFinite(n)) return '';
+  return Number(n).toFixed(decimals);
+}
+
+async function pasteToInput(id){
+  try{
+    const text = await navigator.clipboard.readText();
+    document.getElementById(id).value = text;
+  }catch(e){
+    // silent failure
+  }
+}
+
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(String(text));
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function calculate(){
+  const risk = parseFloat(document.getElementById('risk').value);
+  const price = parseFloat(document.getElementById('price').value);
+  const slPrice = parseFloat(document.getElementById('sl').value);
+  const tpPrice = parseFloat(document.getElementById('tp').value);
+
+  if (!isFinite(risk) || !isFinite(price) || !isFinite(slPrice)){
+    clearOutputs();
+    return null;
+  }
+  if (price <= 0){ clearOutputs(); return null; }
+
+  const distance = Math.abs(price - slPrice);
+  if (distance === 0){ clearOutputs(); return null; }
+
+  // coinAmount = dollar_risk / |entry_price - sl_price|
+  const coinAmount = risk / distance;
+
+  // Fill output inputs as plain numbers so they can be pasted into brokers
+  // Entry/SL/TP: no decimals (0)
+  // Position size: 5 decimals
+  document.getElementById('outEntry').value = formatNumber(price, 0);
+  document.getElementById('outSL').value = formatNumber(slPrice, 0);
+  document.getElementById('outTP').value = isFinite(tpPrice) ? formatNumber(tpPrice,0) : '';
+  document.getElementById('outCoins').value = formatNumber(coinAmount, 5);
+
+  // clear message on new calculate
+  document.getElementById('msg').textContent = '';
+
+  return { coinAmount, price, slPrice, tpPrice };
+}
+
+function clearOutputs(){
+  document.getElementById('outEntry').value = '';
+  document.getElementById('outSL').value = '';
+  document.getElementById('outTP').value = '';
+  document.getElementById('outCoins').value = '';
+  document.getElementById('msg').textContent = '';
+}
+
+function clearAll(){
+  document.getElementById('risk').value = '';
+  document.getElementById('price').value = '';
+  document.getElementById('sl').value = '';
+  document.getElementById('tp').value = '';
+  clearOutputs();
+}
+
+// Paste buttons
+document.getElementById('pastePrice').addEventListener('click', () => pasteToInput('price'));
+document.getElementById('pasteSL').addEventListener('click', () => pasteToInput('sl'));
+document.getElementById('pasteTP').addEventListener('click', () => pasteToInput('tp'));
+
+// Calculate / Clear
+document.getElementById('calc').addEventListener('click', calculate);
+document.getElementById('clear').addEventListener('click', clearAll);
+
+['risk','price','sl','tp'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', function(e){ if (e.key === 'Enter') calculate(); });
+});
+
+// Copy output buttons
+async function copyFromElement(id, label){
+  const el = document.getElementById(id);
+  if (!el || !el.value){ return; }
+  const ok = await copyText(el.value);
+  if (ok){ document.getElementById('msg').textContent = label + ' copied'; }
+}
+
+document.getElementById('copyOutEntry').addEventListener('click', () => copyFromElement('outEntry','Entry'));
+document.getElementById('copyOutSL').addEventListener('click', () => copyFromElement('outSL','SL'));
+document.getElementById('copyOutTP').addEventListener('click', () => copyFromElement('outTP','TP'));
+document.getElementById('copyOutPosition').addEventListener('click', () => copyFromElement('outCoins','Position size'));
+
+</script>
+</body>
+</html>
